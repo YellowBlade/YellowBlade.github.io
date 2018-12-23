@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.6.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.6.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.6.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.6.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.6.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.6.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="Netty的启动流程主要包括服务端Channel的创建，Channel初始化，注册Selector以及监听端口四部分，下面将以前一篇中ServerBootstrap的bind方法为入口具体分析服务端启动流程。 服务端Channle的创建1234567public ChannelFuture bind(SocketAddress localAddress) &amp;#123;    validate();">
+<meta name="keywords" content="netty">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Netty学习笔记（二）服务端启动流程">
+<meta property="og:url" content="http://yoursite.com/2018/12/17/Netty学习笔记（二）服务端启动流程/index.html">
+<meta property="og:site_name" content="学无止境">
+<meta property="og:description" content="Netty的启动流程主要包括服务端Channel的创建，Channel初始化，注册Selector以及监听端口四部分，下面将以前一篇中ServerBootstrap的bind方法为入口具体分析服务端启动流程。 服务端Channle的创建1234567public ChannelFuture bind(SocketAddress localAddress) &amp;#123;    validate();">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2018-12-23T10:10:35.712Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Netty学习笔记（二）服务端启动流程">
+<meta name="twitter:description" content="Netty的启动流程主要包括服务端Channel的创建，Channel初始化，注册Selector以及监听端口四部分，下面将以前一篇中ServerBootstrap的bind方法为入口具体分析服务端启动流程。 服务端Channle的创建1234567public ChannelFuture bind(SocketAddress localAddress) &amp;#123;    validate();">
+
+
+
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2018/12/17/Netty学习笔记（二）服务端启动流程/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>Netty学习笔记（二）服务端启动流程 | 学无止境</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion .logo-line-before i { left: initial; }
+    .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">学无止境</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/17/Netty学习笔记（二）服务端启动流程/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="赵欣阳">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="学无止境">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Netty学习笔记（二）服务端启动流程
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2018-12-17 14:44:33" itemprop="dateCreated datePublished" datetime="2018-12-17T14:44:33+08:00">2018-12-17</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2018-12-23 18:10:35" itemprop="dateModified" datetime="2018-12-23T18:10:35+08:00">2018-12-23</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>Netty的启动流程主要包括服务端Channel的创建，Channel初始化，注册Selector以及监听端口四部分，下面将以前一篇中ServerBootstrap的bind方法为入口具体分析服务端启动流程。</p>
+<h2 id="服务端Channle的创建"><a href="#服务端Channle的创建" class="headerlink" title="服务端Channle的创建"></a>服务端Channle的创建</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">public ChannelFuture bind(SocketAddress localAddress) &#123;</span><br><span class="line">    validate();</span><br><span class="line">    if (localAddress == null) &#123;</span><br><span class="line">        throw new NullPointerException(&quot;localAddress&quot;);</span><br><span class="line">    &#125;</span><br><span class="line">    return doBind(localAddress);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>validate()</code>校验ServerBootStrap中的必要属性是否已经初始化,然后调用<code>doBind()</code>方法</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">private ChannelFuture doBind(final SocketAddress localAddress) &#123;</span><br><span class="line">    //服务端channel的具体创建方法</span><br><span class="line">    final ChannelFuture regFuture = initAndRegister();</span><br><span class="line">    final Channel channel = regFuture.channel();</span><br><span class="line">    ...</span><br><span class="line">    doBind0(regFuture, channel, localAddress, promise);</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">final ChannelFuture initAndRegister() &#123;</span><br><span class="line">    Channel channel = null;</span><br><span class="line">    ...</span><br><span class="line">    //创建Channel实例</span><br><span class="line">    channel = channelFactory.newChannel();</span><br><span class="line">    //初始化Channel</span><br><span class="line">    init(channel);</span><br><span class="line">    ...</span><br><span class="line">    //注册Channel信息</span><br><span class="line">    ChannelFuture regFuture=config().group().register(channel);</span><br><span class="line">    return regFuture;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">public T newChannel() &#123;</span><br><span class="line">    ...</span><br><span class="line">    return clazz.getConstructor().newInstance();</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看出服务端Channel被ServerBootStrap中的channelFactory反射创建，那么channelFactory以及clazz又是在哪里被初始化的呢？</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public B channel(Class&lt;? extends C&gt; channelClass)&#123;        </span><br><span class="line">        if (channelClass == null) &#123;</span><br><span class="line">            throw new NullPointerException(&quot;channelClass&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        return channelFactory(new ReflectiveChannelFactory&lt;C&gt;(channelClass));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public ReflectiveChannelFactory(Class&lt;? extends T&gt; clazz) &#123;</span><br><span class="line">        if (clazz == null) &#123;</span><br><span class="line">            throw new NullPointerException(&quot;clazz&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        this.clazz = clazz;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在前一篇中，通过调用<code>serverBootstrap.channel(NioServerSocketChannel.class)</code>将clazz指定为NioServerSocketChannel。接下来我们看一下NioServerSocketChannel的构造方法。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">public NioServerSocketChannel() &#123;</span><br><span class="line">        this(newSocket(DEFAULT_SELECTOR_PROVIDER));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">private static ServerSocketChannel newSocket(SelectorProvider provider) &#123;</span><br><span class="line">        try &#123;</span><br><span class="line">            //获取java原生ServerSocketChannel</span><br><span class="line">            return provider.openServerSocketChannel();</span><br><span class="line">        &#125; catch (IOException e) &#123;</span><br><span class="line">            throw new ChannelException(</span><br><span class="line">                    &quot;Failed to open a server socket.&quot;, e);</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">public NioServerSocketChannel(ServerSocketChannel channel) &#123;</span><br><span class="line">        //对java原生ServerSocketChannel进一步封装，设置感兴趣的事件为新连接接入。</span><br><span class="line">        super(null, channel, SelectionKey.OP_ACCEPT);</span><br><span class="line">        //构建ServerSocketChannel参数配置。</span><br><span class="line">        config = new NioServerSocketChannelConfig(this, javaChannel().socket());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) &#123;</span><br><span class="line">        super(parent);</span><br><span class="line">        this.ch = ch;</span><br><span class="line">        this.readInterestOp = readInterestOp;</span><br><span class="line">        try &#123;</span><br><span class="line">            ch.configureBlocking(false);</span><br><span class="line">        &#125; catch (IOException e) &#123;</span><br><span class="line">            try &#123;</span><br><span class="line">                ch.close();</span><br><span class="line">            &#125; catch (IOException e2) &#123;</span><br><span class="line">                if (logger.isWarnEnabled()) &#123;</span><br><span class="line">                    logger.warn(</span><br><span class="line">                            &quot;Failed to close a partially initialized socket.&quot;, e2);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            throw new ChannelException(&quot;Failed to enter non-blocking mode.&quot;, e);</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">protected AbstractChannel(Channel parent) &#123;</span><br><span class="line">        this.parent = parent;</span><br><span class="line">        //创建唯一标识</span><br><span class="line">        id = newId();</span><br><span class="line">        //创建unsafe对象用于底层读写操作</span><br><span class="line">        unsafe = newUnsafe();</span><br><span class="line">        //创建ChannelHandler逻辑链</span><br><span class="line">        pipeline = newChannelPipeline();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>首先通过<code>newSocket()</code>通过jdk来创建原生Channel,然后创建TCP参数配置类NioServerSocketChannelConfig，最后设置阻塞模式并对id，unsafe，pipeline进行初始化操作。</p>
+<h2 id="服务端Channel初始化"><a href="#服务端Channel初始化" class="headerlink" title="服务端Channel初始化"></a>服务端Channel初始化</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">void init(Channel channel) throws Exception &#123;</span><br><span class="line">        ...</span><br><span class="line">        //设置channelConfig的TCP属性</span><br><span class="line">        setChannelOptions(channel, options, logger);</span><br><span class="line">        ...</span><br><span class="line">        //设置channel的自定义属性</span><br><span class="line">        for (Entry&lt;AttributeKey&lt;?&gt;, Object&gt; e: attrs.entrySet()) &#123;</span><br><span class="line">                @SuppressWarnings(&quot;unchecked&quot;)</span><br><span class="line">                AttributeKey&lt;Object&gt; key = (AttributeKey&lt;Object&gt;) e.getKey();</span><br><span class="line">                channel.attr(key).set(e.getValue());</span><br><span class="line">        &#125;</span><br><span class="line">        ...</span><br><span class="line">        ChannelPipeline p = channel.pipeline();</span><br><span class="line">        ...</span><br><span class="line">        //添加连接器，为新连接分配一个EvenLoop处理</span><br><span class="line">        p.addLast(new ChannelInitializer&lt;Channel&gt;() &#123;</span><br><span class="line">            @Override</span><br><span class="line">            public void initChannel(final Channel ch) throws Exception &#123;</span><br><span class="line">                final ChannelPipeline pipeline = ch.pipeline();</span><br><span class="line">                //添加自定义的handler</span><br><span class="line">                ChannelHandler handler = config.handler();</span><br><span class="line">                if (handler != null) &#123;</span><br><span class="line">                    pipeline.addLast(handler);</span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">                ch.eventLoop().execute(new Runnable() &#123;</span><br><span class="line">                    @Override</span><br><span class="line">                    public void run() &#123;</span><br><span class="line">                    //将childHandler,childOptions和childAttrs加入到连接器中，为新连接指定相应属性</span><br><span class="line">                        pipeline.addLast(new ServerBootstrapAcceptor(</span><br><span class="line">                                ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>服务端Channel初始化主要由配置服务端Channel属性，配置服务端pipeline，添加连接器并指定新连接相关属性几部分构成。</p>
+<h2 id="注册Selector"><a href="#注册Selector" class="headerlink" title="注册Selector"></a>注册Selector</h2><p>ServerBootStrap中<code>initAndRegister()</code>最终会调用AbstractChannel的<code>void register(EventLoop eventLoop, final ChannelPromise promise)</code>注册Selector<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">public final void register(EventLoop eventLoop, final ChannelPromise promise) &#123;</span><br><span class="line">            ...</span><br><span class="line">            //设置EventLoop后续所有操作都交给这个EventLoop处理。</span><br><span class="line">            AbstractChannel.this.eventLoop = eventLoop;</span><br><span class="line">            ...</span><br><span class="line">            //</span><br><span class="line">            register0(promise);</span><br><span class="line">            ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">private void register0(ChannelPromise promise) &#123;</span><br><span class="line">            ...</span><br><span class="line">            doRegister();</span><br><span class="line">            ...</span><br><span class="line">            //发布HandlerAdded事件</span><br><span class="line">            pipeline.invokeHandlerAddedIfNeeded();</span><br><span class="line">            ...</span><br><span class="line">            //发布ChannelRegistered事件</span><br><span class="line">            pipeline.fireChannelRegistered();</span><br><span class="line">            ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">protected void doRegister() throws Exception &#123;</span><br><span class="line">        boolean selected = false;</span><br><span class="line">        for (;;) &#123;</span><br><span class="line">            try &#123;</span><br><span class="line">                //调用java原生api注册，0表示不关心任何事件，将服务端Channel绑定到selector，方便之后事件的传播。</span><br><span class="line">                selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);</span><br><span class="line">                return;</span><br><span class="line">            &#125; catch (CancelledKeyException e) &#123;</span><br><span class="line">                if (!selected) &#123;</span><br><span class="line">                    // Force the Selector to select now as the &quot;canceled&quot; SelectionKey may still be</span><br><span class="line">                    // cached and not removed because no Select.select(..) operation was called yet.</span><br><span class="line">                    eventLoop().selectNow();</span><br><span class="line">                    selected = true;</span><br><span class="line">                &#125; else &#123;</span><br><span class="line">                    // We forced a select operation on the selector before but the SelectionKey is still cached</span><br><span class="line">                    // for whatever reason. JDK bug ?</span><br><span class="line">                    throw e;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>注册Selector的过程会绑定EventLoop，调用<code>register0()</code>方法通过jdk原生api进行实际注册，并传播相应事件。</p>
+<h2 id="端口绑定"><a href="#端口绑定" class="headerlink" title="端口绑定"></a>端口绑定</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">public final void bind(final SocketAddress localAddress, final ChannelPromise promise) &#123;</span><br><span class="line">        ...</span><br><span class="line">        doBind(localAddress);</span><br><span class="line">        //传播ChannelActive事件</span><br><span class="line">        if (!wasActive &amp;&amp; isActive()) &#123;</span><br><span class="line">            invokeLater(new OneTimeTask() &#123;</span><br><span class="line">                @Override</span><br><span class="line">                public void run() &#123;</span><br><span class="line">                    pipeline.fireChannelActive();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">        &#125;</span><br><span class="line">        ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">protected void doBind(SocketAddress localAddress) throws Exception &#123;</span><br><span class="line">        //调用原生api绑定端口</span><br><span class="line">        javaChannel().socket().bind(localAddress);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>端口绑定部分通过jdk原生api完成端口绑定并传播ChannelActive事件,完成服务端整个启动过程。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/netty/" rel="tag"># netty</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/12/16/BTrace的基本使用/" rel="next" title="BTrace的基本使用">
+                <i class="fa fa-chevron-left"></i> BTrace的基本使用
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">赵欣阳</p>
+              <p class="site-description motion-element" itemprop="description"></p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">3</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  
+                    
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">2</span>
+                    <span class="site-state-item-name">tags</span>
+                  
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#服务端Channle的创建"><span class="nav-number">1.</span> <span class="nav-text">服务端Channle的创建</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#服务端Channel初始化"><span class="nav-number">2.</span> <span class="nav-text">服务端Channel初始化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#注册Selector"><span class="nav-number">3.</span> <span class="nav-text">注册Selector</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#端口绑定"><span class="nav-number">4.</span> <span class="nav-text">端口绑定</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2018</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">赵欣阳</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.6.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+    
+      
+  
+  <script color="0,0,255" opacity="0.5" zindex="-1" count="99" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.6.0"></script>
+
+  <script src="/js/src/motion.js?v=6.6.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.6.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.6.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.6.0"></script>
+<script src="/js/src/post-details.js?v=6.6.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.6.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
