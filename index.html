@@ -292,6 +292,181 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/28/Netty学习笔记（三）Netty的线程模型/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="赵欣阳">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="学无止境">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                
+                <a href="/2018/12/28/Netty学习笔记（三）Netty的线程模型/" class="post-title-link" itemprop="http://yoursite.com/index.html">Netty学习笔记（三）Netty的线程模型</a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2018-12-28 15:56:33 / Modified: 15:58:12" itemprop="dateCreated datePublished" datetime="2018-12-28T15:56:33+08:00">2018-12-28</time>
+            
+
+            
+              
+
+              
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h2 id="NioEventLoop的创建"><a href="#NioEventLoop的创建" class="headerlink" title="NioEventLoop的创建"></a>NioEventLoop的创建</h2><p>NioEventLoop创建过程的入口函数为<code>EventLoopGroup bossGroup = new NioEventLoopGroup();</code><br>在NioEventLoopGroup的构造函数中会调用父类MultithreadEventExecutorGroup构造函数创建NioEventLoop实例</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line">protected MultithreadEventExecutorGroup(int nThreads, Executor executor,</span><br><span class="line">                                            EventExecutorChooserFactory chooserFactory, Object... args) &#123;</span><br><span class="line">        if (nThreads &lt;= 0) &#123;</span><br><span class="line">            throw new IllegalArgumentException(String.format(&quot;nThreads: %d (expected: &gt; 0)&quot;, nThreads));</span><br><span class="line">        &#125;</span><br><span class="line">        if (executor == null) &#123;</span><br><span class="line">        //默认为空，创建线程执行器</span><br><span class="line">            executor = new ThreadPerTaskExecutor(new DefaultThreadFactory());</span><br><span class="line">        &#125;</span><br><span class="line">        //为EventLoopGroup添加具体的EventLoop</span><br><span class="line">        children = new EventExecutor[nThreads];</span><br><span class="line"></span><br><span class="line">        for (int i = 0; i &lt; nThreads; i ++) &#123;</span><br><span class="line">            boolean success = false;</span><br><span class="line">            try &#123;</span><br><span class="line">                //EventLoop的具体创建方法</span><br><span class="line">                children[i] = newChild(executor, args);</span><br><span class="line">                success = true;</span><br><span class="line">            &#125; catch (Exception e) &#123;</span><br><span class="line">                // TODO: Think about if this is a good exception type</span><br><span class="line">                throw new IllegalStateException(&quot;failed to create a child event loop&quot;, e);</span><br><span class="line">            &#125; finally &#123;</span><br><span class="line">            如果创建失败，中断所有已经启动的线程</span><br><span class="line">                if (!success) &#123;</span><br><span class="line">                    for (int j = 0; j &lt; i; j ++) &#123;</span><br><span class="line">                        children[j].shutdownGracefully();</span><br><span class="line">                    &#125;</span><br><span class="line"></span><br><span class="line">                    for (int j = 0; j &lt; i; j ++) &#123;</span><br><span class="line">                        EventExecutor e = children[j];</span><br><span class="line">                        try &#123;</span><br><span class="line">                            while (!e.isTerminated()) &#123;</span><br><span class="line">                                e.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);</span><br><span class="line">                            &#125;</span><br><span class="line">                        &#125; catch (InterruptedException interrupted) &#123;</span><br><span class="line">                            // Let the caller handle the interruption.</span><br><span class="line">                            Thread.currentThread().interrupt();</span><br><span class="line">                            break;</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        //创建线程选择器</span><br><span class="line">        chooser = chooserFactory.newChooser(children);</span><br><span class="line">        //为每个eventLoop添加终止监听器</span><br><span class="line">        final FutureListener&lt;Object&gt; terminationListener = new FutureListener&lt;Object&gt;() &#123;</span><br><span class="line">            @Override</span><br><span class="line">            public void operationComplete(Future&lt;Object&gt; future) throws Exception &#123;</span><br><span class="line">                if (terminatedChildren.incrementAndGet() == children.length) &#123;</span><br><span class="line">                    terminationFuture.setSuccess(null);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;;</span><br><span class="line"></span><br><span class="line">        for (EventExecutor e: children) &#123;</span><br><span class="line">            e.terminationFuture().addListener(terminationListener);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        Set&lt;EventExecutor&gt; childrenSet = new LinkedHashSet&lt;EventExecutor&gt;(children.length);</span><br><span class="line">        Collections.addAll(childrenSet, children);</span><br><span class="line">        readonlyChildren = Collections.unmodifiableSet(childrenSet);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>该方法中的参数：</p>
+<ul>
+<li>nThreads：线程数量，默认为2*CPU核数</li>
+<li>executor： 线程执行器，主要负责线程的创建和任务的执行</li>
+<li>chooserFactory：线程选择器的创建工厂，NioEventLoopGroup通过线程选择器为NioEventLoop分配任务</li>
+<li>args：agrs包括三个参数。第一个参数为jdk原生SelectorProvider，用来创建NioEventLoop对应的Selector。第二个参数为SelectStrategyFactory，是Selector策略的创建工厂，用来控制Selector执行逻辑。第三个参数为RejectedExecutionHandler用来控制NioEventLoop任务的拒绝策略。</li>
+</ul>
+<p>在创建线程执行器executor时为其指定了DefaultThreadFactory线程工厂。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">    public Thread newThread(Runnable r) &#123;</span><br><span class="line">        Thread t = newThread(FastThreadLocalRunnable.wrap(r), prefix + nextId.incrementAndGet());</span><br><span class="line">        ...</span><br></pre></td></tr></table></figure></p>
+<p>在DefaultThreadFactory中使用FastThreadLocalRunnable对Thread进一步包装，内部增强了ThreadLocal性能。线程的名字为<code>prefix + nextId.incrementAndGet()</code>其中<code>prefix = poolName + &#39;-&#39; + poolId.incrementAndGet() + &#39;-&#39;;</code>poolName默认为传递进的class名字，第一个字母转换成了小写（如nioEventLoop）。poolId和nextId分别为从0开始自增。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">    protected EventLoop newChild(Executor executor, Object... args) throws Exception &#123;</span><br><span class="line">        return new NioEventLoop(this, executor, (SelectorProvider) args[0],</span><br><span class="line">            ((SelectStrategyFactory) args[1]).newSelectStrategy(), (RejectedExecutionHandler) args[2]);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>newChild方法为NioEventLoop具体创建过程。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">NioEventLoop(NioEventLoopGroup parent, Executor executor, SelectorProvider selectorProvider,</span><br><span class="line">                 SelectStrategy strategy, RejectedExecutionHandler rejectedExecutionHandler) &#123;</span><br><span class="line">        super(parent, executor, false, DEFAULT_MAX_PENDING_TASKS, rejectedExecutionHandler);</span><br><span class="line">        if (selectorProvider == null) &#123;</span><br><span class="line">            throw new NullPointerException(&quot;selectorProvider&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        if (strategy == null) &#123;</span><br><span class="line">            throw new NullPointerException(&quot;selectStrategy&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        provider = selectorProvider;</span><br><span class="line">        final SelectorTuple selectorTuple = openSelector();</span><br><span class="line">        selector = selectorTuple.selector;</span><br><span class="line">        unwrappedSelector = selectorTuple.unwrappedSelector;</span><br><span class="line">        selectStrategy = strategy;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>NioEventLoop的构造方法为NioEventLoop绑定各种属性，在父类构造方法中创建了两个MpscUnboundedArrayQueue普通任务队列taskQueue，tailTasks和一个PriorityQueue定时任务队列scheduledTaskQueue，并指定parent为对应的NioEventLoopGroup </p>
+<p>线程选择器分为PowerOfTwoEventExecutorChooser和GenericEventExecutorChooser两种。如果指定的线程数量为2的n次方使用PowerOfTwoEventExecutorChooser通过位运算的方式选择线程，其他情况创建GenericEventExecutorChooser求余选择。</p>
+<p>PowerOfTwoEventExecutorChooser<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">public EventExecutor next() &#123;</span><br><span class="line">    return executors[idx.getAndIncrement() &amp; executors.length - 1];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>GenericEventExecutorChooser<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">public EventExecutor next() &#123;</span><br><span class="line">            return executors[Math.abs(idx.getAndIncrement() % executors.length)];</span><br><span class="line">        &#125;</span><br></pre></td></tr></table></figure></p>
+<h2 id="NioEventLoop的启动"><a href="#NioEventLoop的启动" class="headerlink" title="NioEventLoop的启动"></a>NioEventLoop的启动</h2><p>NioEventLoop启动逻辑的入口在父类SingleThreadEventExecutor的<code>public void execute(Runnable task)</code>方法中。当外部线程调用该方法时会启动新线程，并将task添加到任务队列。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">public void execute(Runnable task) &#123;</span><br><span class="line">        if (task == null) &#123;</span><br><span class="line">            throw new NullPointerException(&quot;task&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        //判断当前线程是否为NioEventLoop持有的Thread对象引用</span><br><span class="line">        boolean inEventLoop = inEventLoop();</span><br><span class="line">        //将任务添加到队列中</span><br><span class="line">        addTask(task);</span><br><span class="line">        if (!inEventLoop) &#123;</span><br><span class="line">            //如果是外部线程，将会启动新线程，并将新线程注册到NioEventLoop中</span><br><span class="line">            startThread();</span><br><span class="line">            if (isShutdown()) &#123;</span><br><span class="line">                boolean reject = false;</span><br><span class="line">                try &#123;</span><br><span class="line">                    if (removeTask(task)) &#123;</span><br><span class="line">                        reject = true;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125; catch (UnsupportedOperationException e) &#123;</span><br><span class="line">                    // The task queue does not support removal so the best thing we can do is to just move on and</span><br><span class="line">                    // hope we will be able to pick-up the task before its completely terminated.</span><br><span class="line">                    // In worst case we will log on termination.</span><br><span class="line">                &#125;</span><br><span class="line">                if (reject) &#123;</span><br><span class="line">                    reject();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        if (!addTaskWakesUp &amp;&amp; wakesUpForTask(task)) &#123;</span><br><span class="line">            wakeup(inEventLoop);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p><code>startThread()</code>方法使用原子修改线程状态为已启动，并调用<code>private void doStartThread()</code>完成线程启动</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">private void doStartThread() &#123;</span><br><span class="line">       assert thread == null;</span><br><span class="line">       //通过线程执行器启动新线程</span><br><span class="line">       executor.execute(new Runnable() &#123;</span><br><span class="line">           @Override</span><br><span class="line">           public void run() &#123;</span><br><span class="line">               //将新创建的线程绑定给NioEventLoop内部thread属性</span><br><span class="line">               thread = Thread.currentThread();</span><br><span class="line">               if (interrupted) &#123;</span><br><span class="line">                   thread.interrupt();</span><br><span class="line">               &#125;</span><br><span class="line">               </span><br><span class="line">               boolean success = false;</span><br><span class="line">               updateLastExecutionTime();</span><br><span class="line">               try &#123;</span><br><span class="line">                   //调用NioEventLoop的具体执行逻辑</span><br><span class="line">                   SingleThreadEventExecutor.this.run();</span><br><span class="line">                   success = true;</span><br><span class="line">               &#125; catch (Throwable t) &#123;</span><br><span class="line">                   logger.warn(&quot;Unexpected exception from an event executor: &quot;, t);</span><br><span class="line">               &#125; </span><br><span class="line">               ...</span><br><span class="line">       &#125;);</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure>
+<h2 id="NioEventLoop的执行逻辑"><a href="#NioEventLoop的执行逻辑" class="headerlink" title="NioEventLoop的执行逻辑"></a>NioEventLoop的执行逻辑</h2><p>在NioEventLoop的启动过程最终会调用NioEventLoop的run方法，下面我们来看一下在run方法中都做了哪些事。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line">protected void run() &#123;</span><br><span class="line">        for (;;) &#123;</span><br><span class="line">            try &#123;</span><br><span class="line">                try &#123;</span><br><span class="line">                //通过NioEventLoop创建过程中传递进来的SelectStrategy来控制具体执行逻辑</span><br><span class="line">                    switch (selectStrategy.calculateStrategy(selectNowSupplier, hasTasks())) &#123;</span><br><span class="line">                    case SelectStrategy.CONTINUE:</span><br><span class="line">                        continue;</span><br><span class="line"></span><br><span class="line">                    case SelectStrategy.BUSY_WAIT:</span><br><span class="line">                        // fall-through to SELECT since the busy-wait is not supported with NIO</span><br><span class="line">                    case SelectStrategy.SELECT:</span><br><span class="line">                        select(wakenUp.getAndSet(false));</span><br><span class="line">                    default:</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125; catch (IOException e) &#123;</span><br><span class="line">                    // If we receive an IOException here its because the Selector is messed up. Let&apos;s rebuild</span><br><span class="line">                    // the selector and retry. https://github.com/netty/netty/issues/8566</span><br><span class="line">                    rebuildSelector0();</span><br><span class="line">                    handleLoopException(e);</span><br><span class="line">                    continue;</span><br><span class="line">                &#125;</span><br><span class="line">                //(1)</span><br><span class="line">                cancelledKeys = 0;</span><br><span class="line">                needsToSelectAgain = false;</span><br><span class="line">                final int ioRatio = this.ioRatio;</span><br><span class="line">                if (ioRatio == 100) &#123;</span><br><span class="line">                    try &#123;</span><br><span class="line">                        processSelectedKeys();</span><br><span class="line">                    &#125; finally &#123;</span><br><span class="line">                        // Ensure we always run tasks.</span><br><span class="line">                        runAllTasks();</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125; else &#123;</span><br><span class="line">                    final long ioStartTime = System.nanoTime();</span><br><span class="line">                    try &#123;</span><br><span class="line">                        //默认select时间和队列中任务时间相同</span><br><span class="line">                        processSelectedKeys();</span><br><span class="line">                    &#125; finally &#123;</span><br><span class="line">                        // Ensure we always run tasks.</span><br><span class="line">                        final long ioTime = System.nanoTime() - ioStartTime;</span><br><span class="line">                        //执行队列中的任务</span><br><span class="line">                        runAllTasks(ioTime * (100 - ioRatio) / ioRatio);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; catch (Throwable t) &#123;</span><br><span class="line">                handleLoopException(t);</span><br><span class="line">            &#125;</span><br><span class="line">            // Always handle shutdown even if the loop processing threw an exception.</span><br><span class="line">            try &#123;</span><br><span class="line">                if (isShuttingDown()) &#123;</span><br><span class="line">                    closeAll();</span><br><span class="line">                    if (confirmShutdown()) &#123;</span><br><span class="line">                        return;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; catch (Throwable t) &#123;</span><br><span class="line">                handleLoopException(t);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p><code>selectStrategy.calculateStrategy(selectNowSupplier, hasTasks())</code>会首先判断taskQueue或tailQueue是否还有没有被处理的任务。如果有任务，会再进行一次非阻塞的selectNow操作，返回就绪的感兴趣事件的数量并直接进入到(1)中，如果为空，说明没有任务要处理将会返回SelectStrategy.SELECT进行select操作<br>当返回SelectStrategy.SELECT时会进入到</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line">private void select(boolean oldWakenUp) throws IOException &#123;</span><br><span class="line">        Selector selector = this.selector;</span><br><span class="line">        try &#123;</span><br><span class="line">            int selectCnt = 0;</span><br><span class="line">            long currentTimeNanos = System.nanoTime();</span><br><span class="line">            //delayNanos会返回距离下一个定时任务开始所经过的时间</span><br><span class="line">            long selectDeadLineNanos = currentTimeNanos + delayNanos(currentTimeNanos);</span><br><span class="line"></span><br><span class="line">            for (;;) &#123;</span><br><span class="line">                long timeoutMillis = (selectDeadLineNanos - currentTimeNanos + 500000L) / 1000000L;</span><br><span class="line">                //超时将退出循环</span><br><span class="line">                if (timeoutMillis &lt;= 0) &#123;</span><br><span class="line">                    if (selectCnt == 0) &#123;</span><br><span class="line">                        selector.selectNow();</span><br><span class="line">                        selectCnt = 1;</span><br><span class="line">                    &#125;</span><br><span class="line">                    break;</span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">                if (hasTasks() &amp;&amp; wakenUp.compareAndSet(false, true)) &#123;</span><br><span class="line">                    selector.selectNow();</span><br><span class="line">                    selectCnt = 1;</span><br><span class="line">                    break;</span><br><span class="line">                &#125;</span><br><span class="line">                //select阻塞直到超时</span><br><span class="line">                int selectedKeys = selector.select(timeoutMillis);</span><br><span class="line">                selectCnt ++;</span><br><span class="line"></span><br><span class="line">                if (selectedKeys != 0 || oldWakenUp || wakenUp.get() || hasTasks() || hasScheduledTasks()) &#123;</span><br><span class="line">                    // - Selected something,</span><br><span class="line">                    // - waken up by user, or</span><br><span class="line">                    // - the task queue has a pending task.</span><br><span class="line">                    // - a scheduled task is ready for processing</span><br><span class="line">                    break;</span><br><span class="line">                &#125;</span><br><span class="line">                if (Thread.interrupted()) &#123;</span><br><span class="line">                    // Thread was interrupted so reset selected keys and break so we not run into a busy loop.</span><br><span class="line">                    // As this is most likely a bug in the handler of the user or it&apos;s client library we will</span><br><span class="line">                    // also log it.</span><br><span class="line">                    //</span><br><span class="line">                    // See https://github.com/netty/netty/issues/2426</span><br><span class="line">                    if (logger.isDebugEnabled()) &#123;</span><br><span class="line">                        logger.debug(&quot;Selector.select() returned prematurely because &quot; +</span><br><span class="line">                                &quot;Thread.currentThread().interrupt() was called. Use &quot; +</span><br><span class="line">                                &quot;NioEventLoop.shutdownGracefully() to shutdown the NioEventLoop.&quot;);</span><br><span class="line">                    &#125;</span><br><span class="line">                    selectCnt = 1;</span><br><span class="line">                    break;</span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">                long time = System.nanoTime();</span><br><span class="line">                //判断是否发生空轮询</span><br><span class="line">                if (time - TimeUnit.MILLISECONDS.toNanos(timeoutMillis) &gt;= currentTimeNanos) &#123;</span><br><span class="line">                    // timeoutMillis elapsed without anything selected.</span><br><span class="line">                    selectCnt = 1;</span><br><span class="line">                &#125; else if (SELECTOR_AUTO_REBUILD_THRESHOLD &gt; 0 &amp;&amp;</span><br><span class="line">                        selectCnt &gt;= SELECTOR_AUTO_REBUILD_THRESHOLD) &#123;</span><br><span class="line">                    // The code exists in an extra method to ensure the method is not too big to inline as this</span><br><span class="line">                    // branch is not very likely to get hit very frequently.</span><br><span class="line">                    //当空轮询次数超过阈值，说明触发了jdk空轮询bug，重新构建selector</span><br><span class="line">                    selector = selectRebuildSelector(selectCnt);</span><br><span class="line">                    selectCnt = 1;</span><br><span class="line">                    break;</span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">                currentTimeNanos = time;</span><br><span class="line">            &#125;</span><br><span class="line">           ...</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p> 在该方法中，首先会根据定时任务队列中的队首元素确定超时时间，然后判断队列中是否有任务。如果还是没有就会调用<code>selector.select(timeoutMillis)</code>阻塞轮询，在阻塞期间外部线程如果调用<code>execute(Runnable task)</code>添加任务会唤醒slector。然后根据当前时间是否到达截止时间判断有没有发生空轮询，当空轮询次数超过了阈值会重新构建selector，巧妙的避开了jdk空轮询bug。<br>执行完<code>void select(boolean oldWakenUp)</code>方法后将后根据ioRatio控制处理<code>processSelectedKeys()</code>与<code>runAllTasks(long timeoutNanos)</code>时间比例。<br><code>processSelectedKeys()</code>用来处理selector轮询到的新连接接入或者读写事件。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">protected boolean runAllTasks(long timeoutNanos) &#123;</span><br><span class="line">        //从schedule队列中拿出要执行的任务添加到taskQueue中</span><br><span class="line">        fetchFromScheduledTaskQueue();</span><br><span class="line">        Runnable task = pollTask();</span><br><span class="line">        if (task == null) &#123;</span><br><span class="line">            //当执行完所有任务会从tailTask中获取要执行的任务</span><br><span class="line">            afterRunningAllTasks();</span><br><span class="line">            return false;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        final long deadline = ScheduledFutureTask.nanoTime() + timeoutNanos;</span><br><span class="line">        long runTasks = 0;</span><br><span class="line">        long lastExecutionTime;</span><br><span class="line">        for (;;) &#123;</span><br><span class="line">            safeExecute(task);</span><br><span class="line"></span><br><span class="line">            runTasks ++;</span><br><span class="line"></span><br><span class="line">            // Check timeout every 64 tasks because nanoTime() is relatively expensive.</span><br><span class="line">            // XXX: Hard-coded value - will make it configurable if it is really a problem.</span><br><span class="line">            // 超时break</span><br><span class="line">            if ((runTasks &amp; 0x3F) == 0) &#123;</span><br><span class="line">                lastExecutionTime = ScheduledFutureTask.nanoTime();</span><br><span class="line">                if (lastExecutionTime &gt;= deadline) &#123;</span><br><span class="line">                    break;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            task = pollTask();</span><br><span class="line">            if (task == null) &#123;</span><br><span class="line">                lastExecutionTime = ScheduledFutureTask.nanoTime();</span><br><span class="line">                break;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        afterRunningAllTasks();</span><br><span class="line">        //重新设置lastExecutionTime</span><br><span class="line">        this.lastExecutionTime = lastExecutionTime;</span><br><span class="line">        return true;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p><code>runAllTasks(long timeoutNanos)</code>会分别处理taskQueue，scheduledTaskQueue，tailTasks中的任务。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ol>
+<li>NioEventLoop是一个基于JDK NIO的异步事件循环类，伴随NioEventLoopGroup创建而创建，它负责处理在一个Channel声明周期中的所有事件。</li>
+<li>一个NioEventLoop可以分配给多个Channel，NioEventLoop通过jdk Selector来实现I/O多路复用，对多个Channel进行管理。 </li>
+<li>外部线程调用NioEventLoop的execute方法时，会将任务放入taskQueue中，如果NioEventLoop的线程为空会由ThreadPerTaskExecutor创建新线程执行一个无限循环的逻辑，并绑定给NioEventLoop。</li>
+<li>NioEventLoop的循环逻辑主要包括：a)对Slector进行轮询，获取发生的感兴趣的事件。b)根据selectedKeys处理发生的事件。c)处理taskQueue，scheduledTaskQueue，tailTasks中的任务。</li>
+</ol>
+
+          
+        
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/17/Netty学习笔记（二）服务端启动流程/">
 
     <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
@@ -354,7 +529,7 @@
                 
                   <span class="post-meta-item-text">Edited on</span>
                 
-                <time title="Modified: 2018-12-23 18:10:35" itemprop="dateModified" datetime="2018-12-23T18:10:35+08:00">2018-12-23</time>
+                <time title="Modified: 2018-12-28 11:23:57" itemprop="dateModified" datetime="2018-12-28T11:23:57+08:00">2018-12-28</time>
               
             
           </span>
@@ -392,7 +567,7 @@
             <p>Netty的启动流程主要包括服务端Channel的创建，Channel初始化，注册Selector以及监听端口四部分，下面将以前一篇中ServerBootstrap的bind方法为入口具体分析服务端启动流程。</p>
 <h2 id="服务端Channle的创建"><a href="#服务端Channle的创建" class="headerlink" title="服务端Channle的创建"></a>服务端Channle的创建</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">public ChannelFuture bind(SocketAddress localAddress) &#123;</span><br><span class="line">    validate();</span><br><span class="line">    if (localAddress == null) &#123;</span><br><span class="line">        throw new NullPointerException(&quot;localAddress&quot;);</span><br><span class="line">    &#125;</span><br><span class="line">    return doBind(localAddress);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p><code>validate()</code>校验ServerBootStrap中的必要属性是否已经初始化,然后调用<code>doBind()</code>方法</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">private ChannelFuture doBind(final SocketAddress localAddress) &#123;</span><br><span class="line">    //服务端channel的具体创建方法</span><br><span class="line">    final ChannelFuture regFuture = initAndRegister();</span><br><span class="line">    final Channel channel = regFuture.channel();</span><br><span class="line">    ...</span><br><span class="line">    doBind0(regFuture, channel, localAddress, promise);</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">final ChannelFuture initAndRegister() &#123;</span><br><span class="line">    Channel channel = null;</span><br><span class="line">    ...</span><br><span class="line">    //创建Channel实例</span><br><span class="line">    channel = channelFactory.newChannel();</span><br><span class="line">    //初始化Channel</span><br><span class="line">    init(channel);</span><br><span class="line">    ...</span><br><span class="line">    //注册Channel信息</span><br><span class="line">    ChannelFuture regFuture=config().group().register(channel);</span><br><span class="line">    return regFuture;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">private ChannelFuture doBind(final SocketAddress localAddress) &#123;</span><br><span class="line">    //服务端channel的具体创建方法</span><br><span class="line">    final ChannelFuture regFuture = initAndRegister();</span><br><span class="line">    final Channel channel = regFuture.channel();</span><br><span class="line">    ...</span><br><span class="line">    doBind0(regFuture, channel, localAddress, promise);</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">final ChannelFuture initAndRegister() &#123;</span><br><span class="line">    Channel channel = null;</span><br><span class="line">    ...</span><br><span class="line">    //创建Channel实例</span><br><span class="line">    channel = channelFactory.newChannel();</span><br><span class="line">    //初始化Channel</span><br><span class="line">    init(channel);</span><br><span class="line">    ...</span><br><span class="line">    //注册Channel到相应的NioEventLoop</span><br><span class="line">    ChannelFuture regFuture=config().group().register(channel);</span><br><span class="line">    return regFuture;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">public T newChannel() &#123;</span><br><span class="line">    ...</span><br><span class="line">    return clazz.getConstructor().newInstance();</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>可以看出服务端Channel被ServerBootStrap中的channelFactory反射创建，那么channelFactory以及clazz又是在哪里被初始化的呢？</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public B channel(Class&lt;? extends C&gt; channelClass)&#123;        </span><br><span class="line">        if (channelClass == null) &#123;</span><br><span class="line">            throw new NullPointerException(&quot;channelClass&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        return channelFactory(new ReflectiveChannelFactory&lt;C&gt;(channelClass));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -408,163 +583,6 @@
 <p>注册Selector的过程会绑定EventLoop，调用<code>register0()</code>方法通过jdk原生api进行实际注册，并传播相应事件。</p>
 <h2 id="端口绑定"><a href="#端口绑定" class="headerlink" title="端口绑定"></a>端口绑定</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">public final void bind(final SocketAddress localAddress, final ChannelPromise promise) &#123;</span><br><span class="line">        ...</span><br><span class="line">        doBind(localAddress);</span><br><span class="line">        //传播ChannelActive事件</span><br><span class="line">        if (!wasActive &amp;&amp; isActive()) &#123;</span><br><span class="line">            invokeLater(new OneTimeTask() &#123;</span><br><span class="line">                @Override</span><br><span class="line">                public void run() &#123;</span><br><span class="line">                    pipeline.fireChannelActive();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">        &#125;</span><br><span class="line">        ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">protected void doBind(SocketAddress localAddress) throws Exception &#123;</span><br><span class="line">        //调用原生api绑定端口</span><br><span class="line">        javaChannel().socket().bind(localAddress);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>端口绑定部分通过jdk原生api完成端口绑定并传播ChannelActive事件,完成服务端整个启动过程。</p>
-
-          
-        
-      
-    </div>
-
-    
-
-    
-    
-    
-
-    
-
-    
-      
-    
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  
-
-  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/16/BTrace的基本使用/">
-
-    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="赵欣阳">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="学无止境">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                
-                <a href="/2018/12/16/BTrace的基本使用/" class="post-title-link" itemprop="http://yoursite.com/index.html">BTrace的基本使用</a>
-              
-            
-          </h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-
-            
-            
-            
-
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">Posted on</span>
-              
-
-              
-                
-              
-
-              <time title="Created: 2018-12-16 18:00:33 / Modified: 18:02:35" itemprop="dateCreated datePublished" datetime="2018-12-16T18:00:33+08:00">2018-12-16</time>
-            
-
-            
-              
-
-              
-            
-          </span>
-
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h2 id="BTrace"><a href="#BTrace" class="headerlink" title="BTrace"></a>BTrace</h2><p>BTrace是SUN Kenai云计算开发平台下的一款开源项目，基于Java Complier Api、JVMTI、Java Agent、ASM等技术，可以动态地向目标应用程序的字节码注入追踪代码，实现在不用重启的情况下监控系统运行情况，获取程序运行时的数据信息，如方法参数、返回值、全局变量和堆栈信息等，并且做到最少的侵入，占用最少的系统资源。</p>
-<h2 id="BTrace的安装"><a href="#BTrace的安装" class="headerlink" title="BTrace的安装"></a>BTrace的安装</h2><p>需要JDK7或以上版本<br>安装地址: <a href="https://github.com/btraceio/btrace" target="_blank" rel="noopener">https://github.com/btraceio/btrace</a><br>配置环境变量<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">export BTRACE_HOME=</span><br><span class="line">export PATH=$PATH:$BTRACE_HOME/bin</span><br></pre></td></tr></table></figure></p>
-<h2 id="使用方法"><a href="#使用方法" class="headerlink" title="使用方法"></a>使用方法</h2><p>1.获取目标JVM进程id<br>2.使用<code>btrace &lt;pid&gt; &lt;trace_script&gt;</code>执行BTrace脚本<br>3.BTrace脚本使用外部类作参数需要指定<code>-cp &lt;classpath&gt;</code></p>
-<p>目标中被拦截的方法<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">package com.example.demo.controller;</span><br><span class="line"></span><br><span class="line">import org.springframework.web.bind.annotation.GetMapping;</span><br><span class="line">import org.springframework.web.bind.annotation.RestController;</span><br><span class="line"></span><br><span class="line">@RestController</span><br><span class="line">public class TestController &#123;</span><br><span class="line">    @GetMapping(&quot;/test&quot;)</span><br><span class="line">    public String test(String name,Long time) throws InterruptedException &#123;</span><br><span class="line">        Thread.sleep(time);</span><br><span class="line">        System.out.println(name);</span><br><span class="line">        return name;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
-<p>BTrace脚本获取运行时的入参返回值及系统变量</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">package com.example.demo;</span><br><span class="line"></span><br><span class="line">import com.sun.btrace.AnyType;</span><br><span class="line">import com.sun.btrace.BTraceUtils;</span><br><span class="line">import com.sun.btrace.annotations.*;</span><br><span class="line"></span><br><span class="line">@BTrace</span><br><span class="line">public class BTraceCase &#123;</span><br><span class="line">    @OnMethod(</span><br><span class="line">            clazz = &quot;com.example.demo.controller.TestController&quot;,</span><br><span class="line">            method = &quot;test&quot;,</span><br><span class="line">            location = @Location(value = Kind.RETURN,method = &quot;test&quot;))</span><br><span class="line">    public static void run(@ProbeClassName String pcn, @ProbeMethodName String pmn,</span><br><span class="line">                           String name, Long time, @Return AnyType result)&#123;</span><br><span class="line">        //打印class名，方法名</span><br><span class="line">        BTraceUtils.println(pcn+&quot;,&quot;+pmn);</span><br><span class="line">        //打印入参</span><br><span class="line">        BTraceUtils.println(&quot;name:&quot;+name);</span><br><span class="line">        BTraceUtils.println(&quot;time:&quot;+time);</span><br><span class="line">        //打印返回值</span><br><span class="line">        BTraceUtils.println(&quot;return:&quot;+result);</span><br><span class="line">        //打印运行时的系统变量</span><br><span class="line">        jInfo();</span><br><span class="line">    &#125;</span><br><span class="line">    private static void jInfo()&#123;</span><br><span class="line">        BTraceUtils.println(&quot;System Properties:&quot;);</span><br><span class="line">        BTraceUtils.printProperties();</span><br><span class="line">        BTraceUtils.println(&quot;VM Flags:&quot;);</span><br><span class="line">        BTraceUtils.printVmArguments();</span><br><span class="line">        BTraceUtils.println(&quot;OS Environment:&quot;);</span><br><span class="line">        BTraceUtils.printEnv();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>BTrace脚本获取目标方法中所有函数的执行时间</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">package com.example.demo;</span><br><span class="line"></span><br><span class="line">import com.sun.btrace.BTraceUtils;</span><br><span class="line">import com.sun.btrace.annotations.*;</span><br><span class="line"></span><br><span class="line">@BTrace</span><br><span class="line">public class BTraceCase &#123;</span><br><span class="line">    @OnMethod(</span><br><span class="line">            clazz = &quot;com.example.demo.controller.TestController&quot;,</span><br><span class="line">            method = &quot;test&quot;,</span><br><span class="line">            location = @Location(value = Kind.CALL, method = &quot;/.*/&quot;, clazz = &quot;/.*/&quot;, where = Where.AFTER))</span><br><span class="line">    public static void run(@TargetInstance Object instance, @TargetMethodOrField String method, @Duration long duration)&#123;</span><br><span class="line">        //打印执行时间纳秒级别</span><br><span class="line">        BTraceUtils.println(method +&quot; cost: &quot;+duration);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>测试路径:/test?name=abc&amp;time=3000<br>BTrace结果：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">zhaoxinyangdeMacBook-Air:demo zhaoxinyang$ btrace 42371 BTraceCase.java </span><br><span class="line">com.example.demo.controller.TestController,test</span><br><span class="line">name:abc</span><br><span class="line">time:3000</span><br><span class="line">return:abc</span><br><span class="line">System Properties:</span><br><span class="line">gopherProxySet = false</span><br><span class="line">awt.toolkit = sun.lwawt.macosx.LWCToolkit</span><br><span class="line">file.encoding.pkg = sun.io</span><br><span class="line">java.specification.version = 1.8</span><br><span class="line">sun.cpu.isalist = </span><br><span class="line">sun.jnu.encoding = UTF-8</span><br><span class="line">com.sun.management.jmxremote.authenticate = false</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">zhaoxinyangdeMacBook-Air:demo zhaoxinyang$ btrace 42371 BTraceCase.java </span><br><span class="line">longValue cost: 6896</span><br><span class="line">sleep cost: 3002149446</span><br><span class="line">println cost: 259433</span><br></pre></td></tr></table></figure>
-<h2 id="参数说明"><a href="#参数说明" class="headerlink" title="参数说明"></a>参数说明</h2><h3 id="OnMethod"><a href="#OnMethod" class="headerlink" title="@OnMethod"></a>@OnMethod</h3><p>使用@OnMethod注解定义需要分析的方法入口<br>1、使用全限定名：<code>clazz=&quot;com.example.demo.controller.TestController&quot;, method=&quot;test&quot;</code><br>2、使用正则表达式：<br><code>clazz=&quot;/.*/&quot;, method=&quot;/.*/&quot;</code><br>3、使用接口：<br><code>clazz=&quot;+javax.servlet.Filter&quot;, method=&quot;doFilter&quot;</code><br>4、使用注解：<code>clazz=&quot;@javax.jws.WebService&quot;, method=&quot;@javax.jws.WebMethod&quot;</code><br>5、使用构造方法：<br><code>method=&quot;&lt;init&gt;&quot;</code></p>
-<h3 id="Location"><a href="#Location" class="headerlink" title="@Location"></a>@Location</h3><p>定义Btrace对方法的拦截位置，通过@Location注解指定，默认为Kind.ENTRY<br>1、Kind.ENTRY：在进入方法时，调用Btrace脚本<br>2、Kind.RETURN：方法执行完时，调用Btrace脚本<br>3、Kind.CALL：分析方法中调用其它方法的执行情况<br>4、Kind.LINE：通过设置line，可以监控代码是否执行到指定的位置</p>
-<h3 id="参数上的注解"><a href="#参数上的注解" class="headerlink" title="参数上的注解"></a>参数上的注解</h3><p>@Self用来指定被trace方法的this<br>@Return用来指定被trace方法的返回值<br>@ProbeClassName 用来指定被trace的类名<br>@ProbeMethodName 用来指定被trace的方法名<br>@TargetInstance 用来指定被trace方法内部被调用到的实例<br>@TargetMethodOrField 用来指定被trace方法内部被调用的方法名</p>
-<h2 id="BTrace脚本的限制"><a href="#BTrace脚本的限制" class="headerlink" title="BTrace脚本的限制"></a>BTrace脚本的限制</h2><p>1.不能创建新对象<br>2.不能使用数组<br>3.不能使用同步块或同步方法<br>4.不能使用循环<br>5.属性和方法必须使用static修饰<br>6.不能抛出或捕获异常<br>7.BTrace脚本在目标进程重启后会失效</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>BTrace能实现的功能还有很多很多，其他用法参考链接：<a href="https://github.com/btraceio/btrace/tree/master/samples" target="_blank" rel="noopener">https://github.com/btraceio/btrace/tree/master/samples</a><br>在生产环境下使用BTrace要确保脚本的可行性，发生问题可能会导致目标JVM进程崩溃。</p>
 
           
         
@@ -785,6 +803,163 @@
 
 
     
+      
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/16/BTrace的基本使用/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="赵欣阳">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="学无止境">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                
+                <a href="/2018/12/16/BTrace的基本使用/" class="post-title-link" itemprop="http://yoursite.com/index.html">BTrace的基本使用</a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2018-12-16 18:00:33 / Modified: 18:02:35" itemprop="dateCreated datePublished" datetime="2018-12-16T18:00:33+08:00">2018-12-16</time>
+            
+
+            
+              
+
+              
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h2 id="BTrace"><a href="#BTrace" class="headerlink" title="BTrace"></a>BTrace</h2><p>BTrace是SUN Kenai云计算开发平台下的一款开源项目，基于Java Complier Api、JVMTI、Java Agent、ASM等技术，可以动态地向目标应用程序的字节码注入追踪代码，实现在不用重启的情况下监控系统运行情况，获取程序运行时的数据信息，如方法参数、返回值、全局变量和堆栈信息等，并且做到最少的侵入，占用最少的系统资源。</p>
+<h2 id="BTrace的安装"><a href="#BTrace的安装" class="headerlink" title="BTrace的安装"></a>BTrace的安装</h2><p>需要JDK7或以上版本<br>安装地址: <a href="https://github.com/btraceio/btrace" target="_blank" rel="noopener">https://github.com/btraceio/btrace</a><br>配置环境变量<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">export BTRACE_HOME=</span><br><span class="line">export PATH=$PATH:$BTRACE_HOME/bin</span><br></pre></td></tr></table></figure></p>
+<h2 id="使用方法"><a href="#使用方法" class="headerlink" title="使用方法"></a>使用方法</h2><p>1.获取目标JVM进程id<br>2.使用<code>btrace &lt;pid&gt; &lt;trace_script&gt;</code>执行BTrace脚本<br>3.BTrace脚本使用外部类作参数需要指定<code>-cp &lt;classpath&gt;</code></p>
+<p>目标中被拦截的方法<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">package com.example.demo.controller;</span><br><span class="line"></span><br><span class="line">import org.springframework.web.bind.annotation.GetMapping;</span><br><span class="line">import org.springframework.web.bind.annotation.RestController;</span><br><span class="line"></span><br><span class="line">@RestController</span><br><span class="line">public class TestController &#123;</span><br><span class="line">    @GetMapping(&quot;/test&quot;)</span><br><span class="line">    public String test(String name,Long time) throws InterruptedException &#123;</span><br><span class="line">        Thread.sleep(time);</span><br><span class="line">        System.out.println(name);</span><br><span class="line">        return name;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>BTrace脚本获取运行时的入参返回值及系统变量</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">package com.example.demo;</span><br><span class="line"></span><br><span class="line">import com.sun.btrace.AnyType;</span><br><span class="line">import com.sun.btrace.BTraceUtils;</span><br><span class="line">import com.sun.btrace.annotations.*;</span><br><span class="line"></span><br><span class="line">@BTrace</span><br><span class="line">public class BTraceCase &#123;</span><br><span class="line">    @OnMethod(</span><br><span class="line">            clazz = &quot;com.example.demo.controller.TestController&quot;,</span><br><span class="line">            method = &quot;test&quot;,</span><br><span class="line">            location = @Location(value = Kind.RETURN,method = &quot;test&quot;))</span><br><span class="line">    public static void run(@ProbeClassName String pcn, @ProbeMethodName String pmn,</span><br><span class="line">                           String name, Long time, @Return AnyType result)&#123;</span><br><span class="line">        //打印class名，方法名</span><br><span class="line">        BTraceUtils.println(pcn+&quot;,&quot;+pmn);</span><br><span class="line">        //打印入参</span><br><span class="line">        BTraceUtils.println(&quot;name:&quot;+name);</span><br><span class="line">        BTraceUtils.println(&quot;time:&quot;+time);</span><br><span class="line">        //打印返回值</span><br><span class="line">        BTraceUtils.println(&quot;return:&quot;+result);</span><br><span class="line">        //打印运行时的系统变量</span><br><span class="line">        jInfo();</span><br><span class="line">    &#125;</span><br><span class="line">    private static void jInfo()&#123;</span><br><span class="line">        BTraceUtils.println(&quot;System Properties:&quot;);</span><br><span class="line">        BTraceUtils.printProperties();</span><br><span class="line">        BTraceUtils.println(&quot;VM Flags:&quot;);</span><br><span class="line">        BTraceUtils.printVmArguments();</span><br><span class="line">        BTraceUtils.println(&quot;OS Environment:&quot;);</span><br><span class="line">        BTraceUtils.printEnv();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>BTrace脚本获取目标方法中所有函数的执行时间</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">package com.example.demo;</span><br><span class="line"></span><br><span class="line">import com.sun.btrace.BTraceUtils;</span><br><span class="line">import com.sun.btrace.annotations.*;</span><br><span class="line"></span><br><span class="line">@BTrace</span><br><span class="line">public class BTraceCase &#123;</span><br><span class="line">    @OnMethod(</span><br><span class="line">            clazz = &quot;com.example.demo.controller.TestController&quot;,</span><br><span class="line">            method = &quot;test&quot;,</span><br><span class="line">            location = @Location(value = Kind.CALL, method = &quot;/.*/&quot;, clazz = &quot;/.*/&quot;, where = Where.AFTER))</span><br><span class="line">    public static void run(@TargetInstance Object instance, @TargetMethodOrField String method, @Duration long duration)&#123;</span><br><span class="line">        //打印执行时间纳秒级别</span><br><span class="line">        BTraceUtils.println(method +&quot; cost: &quot;+duration);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>测试路径:/test?name=abc&amp;time=3000<br>BTrace结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">zhaoxinyangdeMacBook-Air:demo zhaoxinyang$ btrace 42371 BTraceCase.java </span><br><span class="line">com.example.demo.controller.TestController,test</span><br><span class="line">name:abc</span><br><span class="line">time:3000</span><br><span class="line">return:abc</span><br><span class="line">System Properties:</span><br><span class="line">gopherProxySet = false</span><br><span class="line">awt.toolkit = sun.lwawt.macosx.LWCToolkit</span><br><span class="line">file.encoding.pkg = sun.io</span><br><span class="line">java.specification.version = 1.8</span><br><span class="line">sun.cpu.isalist = </span><br><span class="line">sun.jnu.encoding = UTF-8</span><br><span class="line">com.sun.management.jmxremote.authenticate = false</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">zhaoxinyangdeMacBook-Air:demo zhaoxinyang$ btrace 42371 BTraceCase.java </span><br><span class="line">longValue cost: 6896</span><br><span class="line">sleep cost: 3002149446</span><br><span class="line">println cost: 259433</span><br></pre></td></tr></table></figure>
+<h2 id="参数说明"><a href="#参数说明" class="headerlink" title="参数说明"></a>参数说明</h2><h3 id="OnMethod"><a href="#OnMethod" class="headerlink" title="@OnMethod"></a>@OnMethod</h3><p>使用@OnMethod注解定义需要分析的方法入口<br>1、使用全限定名：<code>clazz=&quot;com.example.demo.controller.TestController&quot;, method=&quot;test&quot;</code><br>2、使用正则表达式：<br><code>clazz=&quot;/.*/&quot;, method=&quot;/.*/&quot;</code><br>3、使用接口：<br><code>clazz=&quot;+javax.servlet.Filter&quot;, method=&quot;doFilter&quot;</code><br>4、使用注解：<code>clazz=&quot;@javax.jws.WebService&quot;, method=&quot;@javax.jws.WebMethod&quot;</code><br>5、使用构造方法：<br><code>method=&quot;&lt;init&gt;&quot;</code></p>
+<h3 id="Location"><a href="#Location" class="headerlink" title="@Location"></a>@Location</h3><p>定义Btrace对方法的拦截位置，通过@Location注解指定，默认为Kind.ENTRY<br>1、Kind.ENTRY：在进入方法时，调用Btrace脚本<br>2、Kind.RETURN：方法执行完时，调用Btrace脚本<br>3、Kind.CALL：分析方法中调用其它方法的执行情况<br>4、Kind.LINE：通过设置line，可以监控代码是否执行到指定的位置</p>
+<h3 id="参数上的注解"><a href="#参数上的注解" class="headerlink" title="参数上的注解"></a>参数上的注解</h3><p>@Self用来指定被trace方法的this<br>@Return用来指定被trace方法的返回值<br>@ProbeClassName 用来指定被trace的类名<br>@ProbeMethodName 用来指定被trace的方法名<br>@TargetInstance 用来指定被trace方法内部被调用到的实例<br>@TargetMethodOrField 用来指定被trace方法内部被调用的方法名</p>
+<h2 id="BTrace脚本的限制"><a href="#BTrace脚本的限制" class="headerlink" title="BTrace脚本的限制"></a>BTrace脚本的限制</h2><p>1.不能创建新对象<br>2.不能使用数组<br>3.不能使用同步块或同步方法<br>4.不能使用循环<br>5.属性和方法必须使用static修饰<br>6.不能抛出或捕获异常<br>7.BTrace脚本在目标进程重启后会失效</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>BTrace能实现的功能还有很多很多，其他用法参考链接：<a href="https://github.com/btraceio/btrace/tree/master/samples" target="_blank" rel="noopener">https://github.com/btraceio/btrace/tree/master/samples</a><br>在生产环境下使用BTrace要确保脚本的可行性，发生问题可能会导致目标JVM进程崩溃。</p>
+
+          
+        
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
   </section>
 
   
@@ -828,7 +1003,7 @@
                 
                   <a href="/archives/">
                 
-                    <span class="site-state-item-count">3</span>
+                    <span class="site-state-item-count">4</span>
                     <span class="site-state-item-name">posts</span>
                   </a>
                 </div>

@@ -112,7 +112,7 @@
 <meta property="og:site_name" content="学无止境">
 <meta property="og:description" content="Netty的启动流程主要包括服务端Channel的创建，Channel初始化，注册Selector以及监听端口四部分，下面将以前一篇中ServerBootstrap的bind方法为入口具体分析服务端启动流程。 服务端Channle的创建1234567public ChannelFuture bind(SocketAddress localAddress) &amp;#123;    validate();">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:updated_time" content="2018-12-23T10:10:35.712Z">
+<meta property="og:updated_time" content="2018-12-28T03:23:57.420Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Netty学习笔记（二）服务端启动流程">
 <meta name="twitter:description" content="Netty的启动流程主要包括服务端Channel的创建，Channel初始化，注册Selector以及监听端口四部分，下面将以前一篇中ServerBootstrap的bind方法为入口具体分析服务端启动流程。 服务端Channle的创建1234567public ChannelFuture bind(SocketAddress localAddress) &amp;#123;    validate();">
@@ -356,7 +356,7 @@
                 
                   <span class="post-meta-item-text">Edited on</span>
                 
-                <time title="Modified: 2018-12-23 18:10:35" itemprop="dateModified" datetime="2018-12-23T18:10:35+08:00">2018-12-23</time>
+                <time title="Modified: 2018-12-28 11:23:57" itemprop="dateModified" datetime="2018-12-28T11:23:57+08:00">2018-12-28</time>
               
             
           </span>
@@ -392,7 +392,7 @@
         <p>Netty的启动流程主要包括服务端Channel的创建，Channel初始化，注册Selector以及监听端口四部分，下面将以前一篇中ServerBootstrap的bind方法为入口具体分析服务端启动流程。</p>
 <h2 id="服务端Channle的创建"><a href="#服务端Channle的创建" class="headerlink" title="服务端Channle的创建"></a>服务端Channle的创建</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">public ChannelFuture bind(SocketAddress localAddress) &#123;</span><br><span class="line">    validate();</span><br><span class="line">    if (localAddress == null) &#123;</span><br><span class="line">        throw new NullPointerException(&quot;localAddress&quot;);</span><br><span class="line">    &#125;</span><br><span class="line">    return doBind(localAddress);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p><code>validate()</code>校验ServerBootStrap中的必要属性是否已经初始化,然后调用<code>doBind()</code>方法</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">private ChannelFuture doBind(final SocketAddress localAddress) &#123;</span><br><span class="line">    //服务端channel的具体创建方法</span><br><span class="line">    final ChannelFuture regFuture = initAndRegister();</span><br><span class="line">    final Channel channel = regFuture.channel();</span><br><span class="line">    ...</span><br><span class="line">    doBind0(regFuture, channel, localAddress, promise);</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">final ChannelFuture initAndRegister() &#123;</span><br><span class="line">    Channel channel = null;</span><br><span class="line">    ...</span><br><span class="line">    //创建Channel实例</span><br><span class="line">    channel = channelFactory.newChannel();</span><br><span class="line">    //初始化Channel</span><br><span class="line">    init(channel);</span><br><span class="line">    ...</span><br><span class="line">    //注册Channel信息</span><br><span class="line">    ChannelFuture regFuture=config().group().register(channel);</span><br><span class="line">    return regFuture;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">private ChannelFuture doBind(final SocketAddress localAddress) &#123;</span><br><span class="line">    //服务端channel的具体创建方法</span><br><span class="line">    final ChannelFuture regFuture = initAndRegister();</span><br><span class="line">    final Channel channel = regFuture.channel();</span><br><span class="line">    ...</span><br><span class="line">    doBind0(regFuture, channel, localAddress, promise);</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">final ChannelFuture initAndRegister() &#123;</span><br><span class="line">    Channel channel = null;</span><br><span class="line">    ...</span><br><span class="line">    //创建Channel实例</span><br><span class="line">    channel = channelFactory.newChannel();</span><br><span class="line">    //初始化Channel</span><br><span class="line">    init(channel);</span><br><span class="line">    ...</span><br><span class="line">    //注册Channel到相应的NioEventLoop</span><br><span class="line">    ChannelFuture regFuture=config().group().register(channel);</span><br><span class="line">    return regFuture;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">public T newChannel() &#123;</span><br><span class="line">    ...</span><br><span class="line">    return clazz.getConstructor().newInstance();</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>可以看出服务端Channel被ServerBootStrap中的channelFactory反射创建，那么channelFactory以及clazz又是在哪里被初始化的呢？</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public B channel(Class&lt;? extends C&gt; channelClass)&#123;        </span><br><span class="line">        if (channelClass == null) &#123;</span><br><span class="line">            throw new NullPointerException(&quot;channelClass&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        return channelFactory(new ReflectiveChannelFactory&lt;C&gt;(channelClass));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -444,8 +444,8 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2018/12/16/BTrace的基本使用/" rel="next" title="BTrace的基本使用">
-                <i class="fa fa-chevron-left"></i> BTrace的基本使用
+              <a href="/2018/12/16/Netty学习笔记(一) Netty简介/" rel="next" title="Netty学习笔记（一）初识Netty">
+                <i class="fa fa-chevron-left"></i> Netty学习笔记（一）初识Netty
               </a>
             
           </div>
@@ -453,6 +453,10 @@
           <span class="post-nav-divider"></span>
 
           <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/12/28/Netty学习笔记（三）Netty的线程模型/" rel="prev" title="Netty学习笔记（三）Netty的线程模型">
+                Netty学习笔记（三）Netty的线程模型 <i class="fa fa-chevron-right"></i>
+              </a>
             
           </div>
         </div>
@@ -522,7 +526,7 @@
                 
                   <a href="/archives/">
                 
-                    <span class="site-state-item-count">3</span>
+                    <span class="site-state-item-count">4</span>
                     <span class="site-state-item-name">posts</span>
                   </a>
                 </div>
