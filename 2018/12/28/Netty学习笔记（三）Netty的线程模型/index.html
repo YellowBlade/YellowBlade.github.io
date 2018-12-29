@@ -112,7 +112,7 @@
 <meta property="og:site_name" content="学无止境">
 <meta property="og:description" content="NioEventLoop的创建NioEventLoop创建过程的入口函数为EventLoopGroup bossGroup = new NioEventLoopGroup();在NioEventLoopGroup的构造函数中会调用父类MultithreadEventExecutorGroup构造函数创建NioEventLoop实例 123456789101112131415161718192021">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:updated_time" content="2018-12-28T07:58:12.060Z">
+<meta property="og:updated_time" content="2018-12-28T09:10:54.075Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Netty学习笔记（三）Netty的线程模型">
 <meta name="twitter:description" content="NioEventLoop的创建NioEventLoop创建过程的入口函数为EventLoopGroup bossGroup = new NioEventLoopGroup();在NioEventLoopGroup的构造函数中会调用父类MultithreadEventExecutorGroup构造函数创建NioEventLoop实例 123456789101112131415161718192021">
@@ -339,7 +339,7 @@
                 
               
 
-              <time title="Created: 2018-12-28 15:56:33 / Modified: 15:58:12" itemprop="dateCreated datePublished" datetime="2018-12-28T15:56:33+08:00">2018-12-28</time>
+              <time title="Created: 2018-12-28 15:56:33 / Modified: 17:10:54" itemprop="dateCreated datePublished" datetime="2018-12-28T15:56:33+08:00">2018-12-28</time>
             
 
             
@@ -409,7 +409,7 @@
 <li>NioEventLoop是一个基于JDK NIO的异步事件循环类，伴随NioEventLoopGroup创建而创建，它负责处理在一个Channel声明周期中的所有事件。</li>
 <li>一个NioEventLoop可以分配给多个Channel，NioEventLoop通过jdk Selector来实现I/O多路复用，对多个Channel进行管理。 </li>
 <li>外部线程调用NioEventLoop的execute方法时，会将任务放入taskQueue中，如果NioEventLoop的线程为空会由ThreadPerTaskExecutor创建新线程执行一个无限循环的逻辑，并绑定给NioEventLoop。</li>
-<li>NioEventLoop的循环逻辑主要包括：a)对Slector进行轮询，获取发生的感兴趣的事件。b)根据selectedKeys处理发生的事件。c)处理taskQueue，scheduledTaskQueue，tailTasks中的任务。</li>
+<li>NioEventLoop的循环逻辑主要包括：a)对Slector进行轮询，获取发生的感兴趣的IO事件。b)根据selectedKeys处理发生的IO事件。c)处理taskQueue，scheduledTaskQueue，tailTasks中的异步任务。</li>
 </ol>
 
       
@@ -447,8 +447,8 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2018/12/17/Netty学习笔记（二）服务端启动流程/" rel="next" title="Netty学习笔记（二）服务端启动流程">
-                <i class="fa fa-chevron-left"></i> Netty学习笔记（二）服务端启动流程
+              <a href="/2018/12/28/Netty学习笔记（四）Netty新连接接入/" rel="next" title="Netty学习笔记（四）Netty新连接接入">
+                <i class="fa fa-chevron-left"></i> Netty学习笔记（四）Netty新连接接入
               </a>
             
           </div>
@@ -525,7 +525,7 @@
                 
                   <a href="/archives/">
                 
-                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-count">5</span>
                     <span class="site-state-item-name">posts</span>
                   </a>
                 </div>

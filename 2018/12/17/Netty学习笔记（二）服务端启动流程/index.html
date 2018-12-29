@@ -112,7 +112,7 @@
 <meta property="og:site_name" content="学无止境">
 <meta property="og:description" content="Netty的启动流程主要包括服务端Channel的创建，Channel初始化，注册Selector以及监听端口四部分，下面将以前一篇中ServerBootstrap的bind方法为入口具体分析服务端启动流程。 服务端Channle的创建1234567public ChannelFuture bind(SocketAddress localAddress) &amp;#123;    validate();">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:updated_time" content="2018-12-28T03:23:57.420Z">
+<meta property="og:updated_time" content="2018-12-28T10:08:59.928Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Netty学习笔记（二）服务端启动流程">
 <meta name="twitter:description" content="Netty的启动流程主要包括服务端Channel的创建，Channel初始化，注册Selector以及监听端口四部分，下面将以前一篇中ServerBootstrap的bind方法为入口具体分析服务端启动流程。 服务端Channle的创建1234567public ChannelFuture bind(SocketAddress localAddress) &amp;#123;    validate();">
@@ -356,7 +356,7 @@
                 
                   <span class="post-meta-item-text">Edited on</span>
                 
-                <time title="Modified: 2018-12-28 11:23:57" itemprop="dateModified" datetime="2018-12-28T11:23:57+08:00">2018-12-28</time>
+                <time title="Modified: 2018-12-28 18:08:59" itemprop="dateModified" datetime="2018-12-28T18:08:59+08:00">2018-12-28</time>
               
             
           </span>
@@ -407,7 +407,9 @@
 <h2 id="注册Selector"><a href="#注册Selector" class="headerlink" title="注册Selector"></a>注册Selector</h2><p>ServerBootStrap中<code>initAndRegister()</code>最终会调用AbstractChannel的<code>void register(EventLoop eventLoop, final ChannelPromise promise)</code>注册Selector<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">public final void register(EventLoop eventLoop, final ChannelPromise promise) &#123;</span><br><span class="line">            ...</span><br><span class="line">            //设置EventLoop后续所有操作都交给这个EventLoop处理。</span><br><span class="line">            AbstractChannel.this.eventLoop = eventLoop;</span><br><span class="line">            ...</span><br><span class="line">            //</span><br><span class="line">            register0(promise);</span><br><span class="line">            ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">private void register0(ChannelPromise promise) &#123;</span><br><span class="line">            ...</span><br><span class="line">            doRegister();</span><br><span class="line">            ...</span><br><span class="line">            //发布HandlerAdded事件</span><br><span class="line">            pipeline.invokeHandlerAddedIfNeeded();</span><br><span class="line">            ...</span><br><span class="line">            //发布ChannelRegistered事件</span><br><span class="line">            pipeline.fireChannelRegistered();</span><br><span class="line">            ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">protected void doRegister() throws Exception &#123;</span><br><span class="line">        boolean selected = false;</span><br><span class="line">        for (;;) &#123;</span><br><span class="line">            try &#123;</span><br><span class="line">                //调用java原生api注册，0表示不关心任何事件，将服务端Channel绑定到selector，方便之后事件的传播。</span><br><span class="line">                selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);</span><br><span class="line">                return;</span><br><span class="line">            &#125; catch (CancelledKeyException e) &#123;</span><br><span class="line">                if (!selected) &#123;</span><br><span class="line">                    // Force the Selector to select now as the &quot;canceled&quot; SelectionKey may still be</span><br><span class="line">                    // cached and not removed because no Select.select(..) operation was called yet.</span><br><span class="line">                    eventLoop().selectNow();</span><br><span class="line">                    selected = true;</span><br><span class="line">                &#125; else &#123;</span><br><span class="line">                    // We forced a select operation on the selector before but the SelectionKey is still cached</span><br><span class="line">                    // for whatever reason. JDK bug ?</span><br><span class="line">                    throw e;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
 <p>注册Selector的过程会绑定EventLoop，调用<code>register0()</code>方法通过jdk原生api进行实际注册，并传播相应事件。</p>
 <h2 id="端口绑定"><a href="#端口绑定" class="headerlink" title="端口绑定"></a>端口绑定</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">public final void bind(final SocketAddress localAddress, final ChannelPromise promise) &#123;</span><br><span class="line">        ...</span><br><span class="line">        doBind(localAddress);</span><br><span class="line">        //传播ChannelActive事件</span><br><span class="line">        if (!wasActive &amp;&amp; isActive()) &#123;</span><br><span class="line">            invokeLater(new OneTimeTask() &#123;</span><br><span class="line">                @Override</span><br><span class="line">                public void run() &#123;</span><br><span class="line">                    pipeline.fireChannelActive();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">        &#125;</span><br><span class="line">        ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">protected void doBind(SocketAddress localAddress) throws Exception &#123;</span><br><span class="line">        //调用原生api绑定端口</span><br><span class="line">        javaChannel().socket().bind(localAddress);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>端口绑定部分通过jdk原生api完成端口绑定并传播ChannelActive事件,完成服务端整个启动过程。</p>
+<p>端口绑定部分通过jdk原生api完成端口绑定并传播channelActive事件。在事件的传递过程中会调用pipeline中HeadContext的<code>readIfIsAutoRead()</code>方法，而该方法最终会调用AbstractNioChannel的<code>doBeginRead()</code>方法，该方法会将注册在selector上的感兴趣事件修改为接收新连接。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">    protected void doBeginRead() throws Exception &#123;</span><br><span class="line">        // Channel.read() or ChannelHandlerContext.read() was called</span><br><span class="line">        final SelectionKey selectionKey = this.selectionKey;</span><br><span class="line">        if (!selectionKey.isValid()) &#123;</span><br><span class="line">            return;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        readPending = true;</span><br><span class="line">        //创建时注册的感兴趣事件为0</span><br><span class="line">        final int interestOps = selectionKey.interestOps();</span><br><span class="line">        //readInterestOp在NioServerSocketChannel创建过程中被赋值为Accept的对应值</span><br><span class="line">        if ((interestOps &amp; readInterestOp) == 0) &#123;</span><br><span class="line">        //readInterestOp</span><br><span class="line">            selectionKey.interestOps(interestOps | readInterestOp);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>至此服务端启动完成。</p>
 
       
     </div>
@@ -444,8 +446,8 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2018/12/16/Netty学习笔记(一) Netty简介/" rel="next" title="Netty学习笔记（一）初识Netty">
-                <i class="fa fa-chevron-left"></i> Netty学习笔记（一）初识Netty
+              <a href="/2018/12/16/BTrace的基本使用/" rel="next" title="BTrace的基本使用">
+                <i class="fa fa-chevron-left"></i> BTrace的基本使用
               </a>
             
           </div>
@@ -454,8 +456,8 @@
 
           <div class="post-nav-prev post-nav-item">
             
-              <a href="/2018/12/28/Netty学习笔记（三）Netty的线程模型/" rel="prev" title="Netty学习笔记（三）Netty的线程模型">
-                Netty学习笔记（三）Netty的线程模型 <i class="fa fa-chevron-right"></i>
+              <a href="/2018/12/28/Netty学习笔记（四）Netty新连接接入/" rel="prev" title="Netty学习笔记（四）Netty新连接接入">
+                Netty学习笔记（四）Netty新连接接入 <i class="fa fa-chevron-right"></i>
               </a>
             
           </div>
@@ -526,7 +528,7 @@
                 
                   <a href="/archives/">
                 
-                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-count">5</span>
                     <span class="site-state-item-name">posts</span>
                   </a>
                 </div>

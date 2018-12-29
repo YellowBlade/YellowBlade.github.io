@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.6.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.6.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.6.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.6.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.6.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.6.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="检测到新连接接入在前一篇中NioEventLoop启动后最终会做三件事情：  轮询注册在Selector上的IO事件 处理IO事件 处理异步任务。  服务端启动时会将NioServerSocketChannel感兴趣的事件设置为新连接接入。当新连接接入时，NioServerSocketChannel对应的NioEventLoop会轮询到该事件，并通过processSelectedKeysOptim">
+<meta name="keywords" content="netty">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Netty学习笔记（四）Netty新连接接入">
+<meta property="og:url" content="http://yoursite.com/2018/12/28/Netty学习笔记（四）Netty新连接接入/index.html">
+<meta property="og:site_name" content="学无止境">
+<meta property="og:description" content="检测到新连接接入在前一篇中NioEventLoop启动后最终会做三件事情：  轮询注册在Selector上的IO事件 处理IO事件 处理异步任务。  服务端启动时会将NioServerSocketChannel感兴趣的事件设置为新连接接入。当新连接接入时，NioServerSocketChannel对应的NioEventLoop会轮询到该事件，并通过processSelectedKeysOptim">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2018-12-29T03:58:38.635Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Netty学习笔记（四）Netty新连接接入">
+<meta name="twitter:description" content="检测到新连接接入在前一篇中NioEventLoop启动后最终会做三件事情：  轮询注册在Selector上的IO事件 处理IO事件 处理异步任务。  服务端启动时会将NioServerSocketChannel感兴趣的事件设置为新连接接入。当新连接接入时，NioServerSocketChannel对应的NioEventLoop会轮询到该事件，并通过processSelectedKeysOptim">
+
+
+
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2018/12/28/Netty学习笔记（四）Netty新连接接入/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>Netty学习笔记（四）Netty新连接接入 | 学无止境</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion .logo-line-before i { left: initial; }
+    .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">学无止境</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/28/Netty学习笔记（四）Netty新连接接入/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="赵欣阳">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="学无止境">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Netty学习笔记（四）Netty新连接接入
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2018-12-28 15:56:33" itemprop="dateCreated datePublished" datetime="2018-12-28T15:56:33+08:00">2018-12-28</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2018-12-29 11:58:38" itemprop="dateModified" datetime="2018-12-29T11:58:38+08:00">2018-12-29</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="检测到新连接接入"><a href="#检测到新连接接入" class="headerlink" title="检测到新连接接入"></a>检测到新连接接入</h2><p>在前一篇中NioEventLoop启动后最终会做三件事情：</p>
+<ol>
+<li>轮询注册在Selector上的IO事件</li>
+<li>处理IO事件</li>
+<li>处理异步任务。</li>
+</ol>
+<p>服务端启动时会将NioServerSocketChannel感兴趣的事件设置为新连接接入。当新连接接入时，NioServerSocketChannel对应的NioEventLoop会轮询到该事件，并通过<code>processSelectedKeysOptimized()</code>方法处理该事件。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">private void processSelectedKeysOptimized() &#123;</span><br><span class="line">        for (int i = 0; i &lt; selectedKeys.size; ++i) &#123;</span><br><span class="line">            final SelectionKey k = selectedKeys.keys[i];</span><br><span class="line">            // null out entry in the array to allow to have it GC&apos;ed once the Channel close</span><br><span class="line">            // See https://github.com/netty/netty/issues/2363</span><br><span class="line">            selectedKeys.keys[i] = null;</span><br><span class="line">            //获取channel创建过程中通过javaChannel().register()方法绑定的NioServerSocketChannel或NioSocketChannel</span><br><span class="line">            final Object a = k.attachment();</span><br><span class="line"></span><br><span class="line">            if (a instanceof AbstractNioChannel) &#123;</span><br><span class="line">                processSelectedKey(k, (AbstractNioChannel) a);</span><br><span class="line">            &#125; else &#123;</span><br><span class="line">                @SuppressWarnings(&quot;unchecked&quot;)</span><br><span class="line">                NioTask&lt;SelectableChannel&gt; task = (NioTask&lt;SelectableChannel&gt;) a;</span><br><span class="line">                processSelectedKey(k, task);</span><br><span class="line">            &#125;</span><br><span class="line">            ...</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>在<code>processSelectedKey(SelectionKey k, AbstractNioChannel ch)</code>方法中处理具体IO事件。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">private void processSelectedKey(SelectionKey k, AbstractNioChannel ch) &#123;</span><br><span class="line">        final AbstractNioChannel.NioUnsafe unsafe = ch.unsafe();</span><br><span class="line">        ...</span><br><span class="line">        try &#123;</span><br><span class="line">            //根据readyOps获取发生的IO事件对应值</span><br><span class="line">            int readyOps = k.readyOps();</span><br><span class="line">            // We first need to call finishConnect() before try to trigger a read(...) or write(...) as otherwise</span><br><span class="line">            // the NIO JDK channel implementation may throw a NotYetConnectedException.</span><br><span class="line">            if ((readyOps &amp; SelectionKey.OP_CONNECT) != 0) &#123;</span><br><span class="line">                // remove OP_CONNECT as otherwise Selector.select(..) will always return without blocking</span><br><span class="line">                // See https://github.com/netty/netty/issues/924</span><br><span class="line">                int ops = k.interestOps();</span><br><span class="line">                ops &amp;= ~SelectionKey.OP_CONNECT;</span><br><span class="line">                k.interestOps(ops);</span><br><span class="line"></span><br><span class="line">                unsafe.finishConnect();</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            // Process OP_WRITE first as we may be able to write some queued buffers and so free memory.</span><br><span class="line">            if ((readyOps &amp; SelectionKey.OP_WRITE) != 0) &#123;</span><br><span class="line">                // Call forceFlush which will also take care of clear the OP_WRITE once there is nothing left to write</span><br><span class="line">                ch.unsafe().forceFlush();</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            // Also check for readOps of 0 to workaround possible JDK bug which may otherwise lead</span><br><span class="line">            // to a spin loop</span><br><span class="line">            if ((readyOps &amp; (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) &#123;</span><br><span class="line">                //(1)</span><br><span class="line">                unsafe.read();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; catch (CancelledKeyException ignored) &#123;</span><br><span class="line">            unsafe.close(unsafe.voidPromise());</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>由于是新连接接入事件，最终会进入到(1)方法，调用NioServerSocketChannel对应NioMessageUnsafe的读方法。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">    @Override</span><br><span class="line">    public void read() &#123;</span><br><span class="line">        ...</span><br><span class="line">        try &#123;</span><br><span class="line">            do &#123;</span><br><span class="line">                int localRead = doReadMessages(readBuf);</span><br><span class="line">                ...</span><br><span class="line">            &#125; while (allocHandle.continueReading());</span><br><span class="line">        &#125; catch (Throwable t) &#123;</span><br><span class="line">            exception = t;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        int size = readBuf.size();</span><br><span class="line">        for (int i = 0; i &lt; size; i ++) &#123;</span><br><span class="line">            readPending = false;</span><br><span class="line">            //传递read事件</span><br><span class="line">            pipeline.fireChannelRead(readBuf.get(i));</span><br><span class="line">        &#125;</span><br><span class="line">        //清空buffer并传递read完成事件。</span><br><span class="line">        readBuf.clear();</span><br><span class="line">        allocHandle.readComplete();</span><br><span class="line">        pipeline.fireChannelReadComplete();</span><br><span class="line">        ...</span><br><span class="line">   &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>doReadMessages(List&lt;Object&gt; buf)</code>执行read具体逻辑。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">protected int doReadMessages(List&lt;Object&gt; buf) throws Exception &#123;</span><br><span class="line">    //获取新连接对应的jdk原生SocketChannel</span><br><span class="line">    SocketChannel ch = SocketUtils.accept(javaChannel());</span><br><span class="line"></span><br><span class="line">    try &#123;</span><br><span class="line">        if (ch != null) &#123;</span><br><span class="line">            //创建NioSocketChannel并添加到buffer中，为接下来读事件传递做准备</span><br><span class="line">            buf.add(new NioSocketChannel(this, ch));</span><br><span class="line">            return 1;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; catch (Throwable t) &#123;</span><br><span class="line">        logger.warn(&quot;Failed to create a new channel from an accepted socket.&quot;, t);</span><br><span class="line"></span><br><span class="line">        try &#123;</span><br><span class="line">            ch.close();</span><br><span class="line">        &#125; catch (Throwable t2) &#123;</span><br><span class="line">            logger.warn(&quot;Failed to close a socket.&quot;, t2);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>可以看出当服务端检测到新连接时，会调用<code>unsafe.read()</code>方法，创建NioSocketChannel并传播读相关事件。</p>
+<h2 id="NioSocketChannel的创建"><a href="#NioSocketChannel的创建" class="headerlink" title="NioSocketChannel的创建"></a>NioSocketChannel的创建</h2><p>NioSocketChannel与NioServerSocketChanel有共同的父类AbstractChannel，它们的创建过程很相似。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">public NioSocketChannel(Channel parent, SocketChannel socket) &#123;</span><br><span class="line">    super(parent, socket);</span><br><span class="line">    config = new NioSocketChannelConfig(this, socket.socket());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">protected AbstractNioByteChannel(Channel parent, SelectableChannel ch) &#123;</span><br><span class="line">    super(parent, ch, SelectionKey.OP_READ);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) &#123;</span><br><span class="line">    super(parent);</span><br><span class="line">    this.ch = ch;</span><br><span class="line">    this.readInterestOp = readInterestOp;</span><br><span class="line">    try &#123;</span><br><span class="line">        ch.configureBlocking(false);</span><br><span class="line">    &#125; catch (IOException e) &#123;</span><br><span class="line">        try &#123;</span><br><span class="line">            ch.close();</span><br><span class="line">        &#125; catch (IOException e2) &#123;</span><br><span class="line">            if (logger.isWarnEnabled()) &#123;</span><br><span class="line">                logger.warn(</span><br><span class="line">                        &quot;Failed to close a partially initialized socket.&quot;, e2);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        throw new ChannelException(&quot;Failed to enter non-blocking mode.&quot;, e);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">protected AbstractChannel(Channel parent) &#123;</span><br><span class="line">    this.parent = parent;</span><br><span class="line">    id = newId();</span><br><span class="line">    unsafe = newUnsafe();</span><br><span class="line">    pipeline = newChannelPipeline();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在父类构造方法中首先指定感兴趣的事件为读事件，然后调用<code>AbstractChannel(Channel parent)</code>将NioServerSocketChannel绑定到parent属性，并创建唯一id，用于IO操作的unsafe实现类以及用于事件传播的pipeline。最后绑定SocketChannel以及感兴趣的IO事件。<br>在NioSocketChannel的构造方法中还会创建NioSocketChannelConfig配置类，该方法绑定jdk原生Socket，并创建AdaptiveRecvByteBufAllocator用于构建最优大小的读操作缓冲区。</p>
+<p>在服务端启动过程中，NioServerSocketChannel对应的pipeline会添加一个ServerBootstrapAcceptor,该类实现了ChannelInboundHandler接口，在读事件的传播过程中会调用它的<code>void channelRead(ChannelHandlerContext ctx, Object msg)</code>方法。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">public void channelRead(ChannelHandlerContext ctx, Object msg) &#123;</span><br><span class="line">        //NioSocketChannel</span><br><span class="line">        final Channel child = (Channel) msg;</span><br><span class="line">        //为NioSocketChannel的pipeline添加用户定义的childHandler。</span><br><span class="line">        child.pipeline().addLast(childHandler);</span><br><span class="line">        //设置用户定义的tcp属性。</span><br><span class="line">        setChannelOptions(child, childOptions, logger);</span><br><span class="line">        //设置用户定义的特殊属性。</span><br><span class="line">        for (Entry&lt;AttributeKey&lt;?&gt;, Object&gt; e: childAttrs) &#123;</span><br><span class="line">            child.attr((AttributeKey&lt;Object&gt;) e.getKey()).set(e.getValue());</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        try &#123;</span><br><span class="line">        //将NioSocketChannel注册到用户创建的workerGroup线程组中的某个线程，该线程处理NioSocketChannel生命周期的所有IO事件。</span><br><span class="line">            childGroup.register(child).addListener(new ChannelFutureListener() &#123;</span><br><span class="line">                @Override</span><br><span class="line">                public void operationComplete(ChannelFuture future) throws Exception &#123;</span><br><span class="line">                    if (!future.isSuccess()) &#123;</span><br><span class="line">                        forceClose(child, future.cause());</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">        &#125; catch (Throwable t) &#123;</span><br><span class="line">            forceClose(child, t);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>该方法首先会将用户定义的childOption，childHandler和childAttrs绑定给NioSocketChannel，然后将NioSocketChannel注册到workerGroup中的某个NioEventLoop，该过程同NioServerSocketChannel一致。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>当新连接接入，NioServerSocketChannel对应的NioEventLoop会轮询到该事件，创建NioSocketChannel，并将NioSocketChannel通过pipeline的读事件传播。当ServerBootstrapAcceptor收到该读事件，将用户定义的新连接属性，ChannelHandler绑定给NioSocketChannel，并注册NioSocketChannel到workerGroup中的NioEventLoop。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/netty/" rel="tag"># netty</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/12/17/Netty学习笔记（二）服务端启动流程/" rel="next" title="Netty学习笔记（二）服务端启动流程">
+                <i class="fa fa-chevron-left"></i> Netty学习笔记（二）服务端启动流程
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/12/28/Netty学习笔记（三）Netty的线程模型/" rel="prev" title="Netty学习笔记（三）Netty的线程模型">
+                Netty学习笔记（三）Netty的线程模型 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">赵欣阳</p>
+              <p class="site-description motion-element" itemprop="description"></p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">5</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  
+                    
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">2</span>
+                    <span class="site-state-item-name">tags</span>
+                  
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#检测到新连接接入"><span class="nav-number">1.</span> <span class="nav-text">检测到新连接接入</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#NioSocketChannel的创建"><span class="nav-number">2.</span> <span class="nav-text">NioSocketChannel的创建</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2018</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">赵欣阳</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.6.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+    
+      
+  
+  <script color="0,0,255" opacity="0.5" zindex="-1" count="99" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.6.0"></script>
+
+  <script src="/js/src/motion.js?v=6.6.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.6.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.6.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.6.0"></script>
+<script src="/js/src/post-details.js?v=6.6.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.6.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
